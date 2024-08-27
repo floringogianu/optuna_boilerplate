@@ -1,0 +1,14 @@
+agent:
+  args_:
+    target_update_freq:
+      - int
+      - [500, 8000, 500, False]
+
+optim:
+  args_:
+    lr:
+      - float
+      - [0.00001, 0.01, null, True]
+    eps:
+      - float
+      - [0.000001, 0.001, null, True]

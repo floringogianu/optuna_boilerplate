@@ -1,0 +1,36 @@
+experiment: mdqn
+device: cuda
+
+game: space_invaders
+num_epochs: 20
+steps_per_epoch: 50_000
+val_epsilon: 0.001
+min_val_steps: 20_000
+
+agent:
+  name: MDQN
+  args_:
+    online_update_freq: 4
+    target_update_freq: null
+  pe_:
+    gamma: 0.99
+    loss_fn: MSELoss
+  epsilon_:
+    start: 1.0
+    end: 0.01
+    steps: 250_000
+    warmup_steps: 5_000
+  replay_:
+    size: 100_000
+    hist_len: 1
+    batch_size: 32
+    warmup_steps: 5_000
+
+net_:
+  scale: 1
+
+optim:
+  name: Adam
+  args_:
+    lr: null
+    eps: null
