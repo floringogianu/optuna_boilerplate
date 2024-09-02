@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, Namespace
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Callable
@@ -15,7 +16,6 @@ def run(opt: Opt, cb: Callable[[int, dict], None]) -> None:
     your model, optimizers, data-loading, etc.
     """
     for epoch in range(opt.epoch_num):
-        
         # model.train()
         # metrics = model.validate()
 
@@ -80,19 +80,32 @@ def main(opt: Namespace) -> None:
     base_hp = Opt.from_yaml(Path(opt.config_root) / "base.yaml")
     tune_hp = Opt.from_yaml(Path(opt.config_root) / "tune.yaml")
 
-    # make the trial aware of the output directory
-    base_hp.out_dir = Path(opt.result_root)
-    base_hp.out_dir.mkdir(exist_ok=True)
+    if opt.append:
+        assert (
+            base_hp.experiment in opt.append
+        ), f"Trying to append `{base_hp.experiment}` to `{opt.append}`."
+        search_name = opt.append
+    else:
+        search_name = f"{datetime.now():{'%Y%b%d':s}}_{base_hp.experiment}"
 
+    # make the trial aware of the output directory
+    base_hp.out_dir = Path.cwd() / opt.results_dir / search_name
+    base_hp.out_dir.mkdir(exist_ok=True, parents=True)
     # create the objective
-    objective = partial(runner, base_hp=base_hp, tune_hp=tune_hp, metric_name="acc")
+    objective = partial(runner, base_hp=base_hp, tune_hp=tune_hp)
+
+    storage = optuna.storages.RDBStorage(
+        url=f"sqlite:///{opt.results_dir}/optuna.db",
+        # heartbeat_interval=60,
+        # grace_period=600,
+        # failed_trial_callback=optuna.storages.RetryFailedTrialCallback(max_retry=3),
+    )
 
     study = optuna.create_study(
-        study_name="second_search",
-        storage=f"sqlite:///{opt.result_root}/optuna.db",
+        study_name=search_name,
+        storage=storage,
         pruner=optuna.pruners.SuccessiveHalvingPruner(
-            min_resource=5,
-            reduction_factor=4,
+            min_resource=5, reduction_factor=4
         ),
         direction="maximize",
         load_if_exists=True,
@@ -113,6 +126,9 @@ def main(opt: Namespace) -> None:
 if __name__ == "__main__":
     parser = ArgumentParser("TuneRL")
     parser.add_argument("config_root", type=str)
-    parser.add_argument("result_root", type=str)
-    parser.add_argument("--max_trials", dest="max_trials", type=int)
+    parser.add_argument("--max-trials", dest="max_trials", type=int)
+    parser.add_argument(
+        "--results-dir", dest="results_dir", default="results", type=str
+    )
+    parser.add_argument("--append", dest="append", default="", type=str)
     main(parser.parse_args())
